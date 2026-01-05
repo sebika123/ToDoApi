@@ -15,7 +15,7 @@ import { AuthModule } from './auth/auth.module';
       useFactory: (configService: ConfigService) => {
         const uri = configService.get<string>('MONGO_URI');
         if (!uri) throw new Error('MONGO_URI not defined in .env');
-        console.log('🚀 Connecting to MongoDB with URI:', uri);
+
         return {
           uri,
         };
