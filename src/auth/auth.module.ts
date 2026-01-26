@@ -10,6 +10,7 @@ import { AuthController } from './auth.controller';
 import { User, UserSchema } from './schemas/user.schema';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthResolver } from './auth.resolver';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AuthResolver } from './auth.resolver';
         signOptions: { expiresIn: '1d' },
       }),
     }),
+    EmailModule,
   ],
   providers: [AuthService, AuthResolver, JwtStrategy], // Add AuthResolver here
   controllers: [AuthController],

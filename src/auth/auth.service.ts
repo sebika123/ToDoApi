@@ -1,106 +1,189 @@
 import {
   Injectable,
-  ConflictException,
   UnauthorizedException,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { User } from './schemas/user.schema';
+import { JwtService } from '@nestjs/jwt';
+import { User, UserDocument } from './schemas/user.schema';
+import { EmailService } from 'src/email/email.service';
 import { RegisterDto } from './dto/register.dto';
-import { RegisterInput } from './dto/graphql.inputs';
-import { LoginDto } from './dto/login.dto';
-
-
 
 @Injectable()
 export class AuthService {
+  private readonly OTP_EXPIRY_MINUTES = 10;
+  private readonly logger = new Logger(AuthService.name);
   constructor(
-    @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
-  async register(registerData: RegisterDto | RegisterInput): Promise<any> {
-    // Check if user exists
-    const existingUser = await this.userModel.findOne({
-      email: registerData.email,
-    });
-    if (existingUser) {
-      throw new ConflictException('Email already exists');
-    }
+  async register(dto: RegisterDto) {
+    // Check if user already exists
+    const exists = await this.userModel.findOne({ email: dto.email });
+    if (exists) throw new ConflictException('Email already exists');
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(registerData.password, 10);
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    // Create user
+    // Generate OTP
+    const otp = this.generateOTP();
+    const otpExpires = new Date();
+    otpExpires.setMinutes(otpExpires.getMinutes() + this.OTP_EXPIRY_MINUTES);
+
+    // Create user (not verified yet)
     const user = await this.userModel.create({
-      name: registerData.name,
-      email: registerData.email,
+      ...dto,
       password: hashedPassword,
-      phone: registerData.phone,
-      address: registerData.address,
-      gender: registerData.gender,
-      terms: registerData.terms,
+      isVerified: false,
+      otp,
+      otpExpires,
+      role: 'user',
     });
+    this.logger.log(
+      `📧 Registration OTP for ${user.name} (${user.email}): ${otp}`,
+    );
+    this.logger.log(`⏰ OTP expires at: ${otpExpires}`);
 
-    // Generate JWT token
-    const token = this.jwtService.sign({ sub: user._id, email: user.email });
+    try {
+      await this.emailService.sendVerificationEmail(user.email, otp, user.name);
+    } catch (error) {
+      // In development, continue even if email fails
+      this.logger.warn(
+        'Email sending failed, but continuing in development mode',
+      );
+    }
 
-    // Convert to JSON to get transformed fields
-    const userJson = user.toJSON();
-
+    // Return response without token (user needs to verify first)
     return {
-      access_token: token,
-      message: 'User registered successfully',
-      success: true,
-      user: {
-        id: userJson.id,
-        name: userJson.name,
-        email: userJson.email,
-        phone: userJson.phone,
-        address: userJson.address,
-        gender: userJson.gender,
-        createdAt: userJson.createdAt,
-        updatedAt: userJson.updatedAt,
-      },
+      message:
+        'Registration successful! Please check your email for verification OTP.',
+      userId: user._id,
+      email: user.email,
+      isVerified: false,
+      otpExpires: otpExpires,
+      otp: otp, // Include OTP in response for testing
     };
   }
 
-  async login(loginDto: LoginDto): Promise<any> {
-    const { email, password } = loginDto;
-
-    // Find user
+  async verifyOtp(email: string, otp: string) {
     const user = await this.userModel.findOne({ email });
+
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new NotFoundException('User not found');
     }
 
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+    if (user.isVerified) {
+      throw new BadRequestException('Email already verified');
     }
 
-    // Generate JWT token
-    const token = this.jwtService.sign({ sub: user._id, email: user.email });
+    // Check if OTP exists and matches
+    if (!user.otp || user.otp !== otp) {
+      throw new BadRequestException('Invalid OTP');
+    }
 
-    // Convert to JSON to get transformed fields
-    const userJson = user.toJSON();
+    // Check if OTP is expired
+    if (!user.otpExpires || new Date() > user.otpExpires) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    // Mark user as verified and clear OTP using Mongoose update
+    await this.userModel.findByIdAndUpdate(user._id, {
+      $set: { isVerified: true },
+      $unset: { otp: '', otpExpires: '' },
+    });
+
+    // Send welcome email
+    await this.emailService.sendWelcomeEmail(user.email, user.name);
+
+    // Get updated user
+    const updatedUser = await this.userModel.findById(user._id);
+    if (!updatedUser) {
+      throw new NotFoundException('User not found after verification');
+    }
+
+    // Generate tokens
+    const tokens = this.signToken(updatedUser);
 
     return {
-      access_token: token,
-      message: 'Login successful',
-      success: true,
+      message: 'Email verified successfully!',
+      ...tokens,
+    };
+  }
+
+  async resendOtp(email: string) {
+    const user = await this.userModel.findOne({ email });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.isVerified) {
+      throw new BadRequestException('Email already verified');
+    }
+
+    // Generate new OTP
+    const otp = this.generateOTP();
+    const otpExpires = new Date();
+    otpExpires.setMinutes(otpExpires.getMinutes() + this.OTP_EXPIRY_MINUTES);
+
+    // Update user with new OTP
+    user.otp = otp;
+    user.otpExpires = otpExpires;
+    await user.save();
+
+    // Resend verification email
+    await this.emailService.sendVerificationEmail(user.email, otp, user.name);
+
+    return {
+      message: 'New OTP sent to your email',
+      otpExpires: otpExpires,
+    };
+  }
+
+  async login(email: string, password: string) {
+    const user = await this.userModel.findOne({ email });
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+
+    // Check if user is verified
+    if (!user.isVerified) {
+      throw new UnauthorizedException('Please verify your email first');
+    }
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) throw new UnauthorizedException('Invalid credentials');
+
+    return this.signToken(user);
+  }
+
+  private generateOTP(): string {
+    // Generate 6-digit OTP
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  private signToken(user: UserDocument) {
+    const payload = {
+      sub: user._id,
+      email: user.email,
+      role: user.role,
+      isVerified: user.isVerified,
+    };
+
+    return {
+      access_token: this.jwtService.sign(payload),
+      refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
       user: {
-        id: userJson.id,
-        name: userJson.name,
-        email: userJson.email,
-        phone: userJson.phone,
-        address: userJson.address,
-        gender: userJson.gender,
-        createdAt: userJson.createdAt,
-        updatedAt: userJson.updatedAt,
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isVerified: user.isVerified,
       },
     };
   }

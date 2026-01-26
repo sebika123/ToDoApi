@@ -5,7 +5,7 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
 import { AuthModule } from './auth/auth.module';
-
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -37,7 +37,7 @@ import { AuthModule } from './auth/auth.module';
     }),
 
     AuthModule,
+    EmailModule,
   ],
-
 })
 export class AppModule {}

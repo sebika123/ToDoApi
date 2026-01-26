@@ -1,50 +1,42 @@
-// import { Args, Mutation, Resolver } from '@nestjs/graphql';
-// import { AuthService } from './auth.service';
-// import { LoginInput, RegisterInput } from './dto/graphql.inputs';
-// import { AuthResponse } from './dto/graphql.types';
-
-// @Resolver()
-// export class AuthResolver {
-//   constructor(private readonly authService: AuthService) {}
-
-//   @Mutation(() => AuthResponse)
-//   async register(
-//     @Args('registerInput') registerInput: RegisterInput,
-//   ): Promise<AuthResponse> {
-//     return this.authService.register(registerInput);
-//   }
-
-//   @Mutation(() => AuthResponse)
-//   async login(
-//     @Args('loginInput') loginInput: LoginInput,
-//   ): Promise<AuthResponse> {
-//     return this.authService.login(loginInput);
-//   }
-// }
-
-
-import { Args, Mutation, Resolver, Query } from '@nestjs/graphql';
+import { Resolver, Mutation, Args, Query } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
-import { LoginInput, RegisterInput } from './dto/graphql.inputs';
-import { AuthResponse, UserType } from './dto/graphql.types';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
+import {
+  AuthResponse,
+  RegisterResponse,
+  VerifyOtpResponse,
+} from './auth-response.type';
 
 @Resolver()
 export class AuthResolver {
   constructor(private readonly authService: AuthService) {}
 
-  // Add at least one query
   @Query(() => String)
-  hello(): string {
-    return 'Hello from GraphQL API!';
+  healthCheck(): string {
+    return 'Auth service is running!';
+  }
+
+  @Mutation(() => RegisterResponse)
+  async register(@Args('input') dto: RegisterDto) {
+    return this.authService.register(dto);
+  }
+
+  @Mutation(() => VerifyOtpResponse)
+  async verifyOtp(@Args('input') dto: VerifyOtpDto) {
+    return this.authService.verifyOtp(dto.email, dto.otp);
+  }
+
+  @Mutation(() => String)
+  async resendOtp(@Args('input') dto: ResendOtpDto) {
+    const result = await this.authService.resendOtp(dto.email);
+    return result.message;
   }
 
   @Mutation(() => AuthResponse)
-  async register(@Args('registerInput') registerInput: RegisterInput): Promise<AuthResponse> {
-    return this.authService.register(registerInput);
-  }
-
-  @Mutation(() => AuthResponse)
-  async login(@Args('loginInput') loginInput: LoginInput): Promise<AuthResponse> {
-    return this.authService.login(loginInput);
+  async login(@Args('input') dto: LoginDto) {
+    return this.authService.login(dto.email, dto.password);
   }
 }
