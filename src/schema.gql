@@ -1,0 +1,57 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AuthResponse {
+  access_token: String!
+  message: String!
+  success: Boolean!
+  user: UserType!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+"""User gender"""
+enum Gender {
+  FEMALE
+  MALE
+  OTHER
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  login(loginInput: LoginInput!): AuthResponse!
+  register(registerInput: RegisterInput!): AuthResponse!
+}
+
+type Query {
+  hello: String!
+}
+
+input RegisterInput {
+  address: String!
+  email: String!
+  gender: Gender!
+  name: String!
+  password: String!
+  phone: String!
+  terms: Boolean!
+}
+
+type UserType {
+  address: String!
+  createdAt: DateTime!
+  email: String!
+  gender: Gender!
+  id: ID!
+  name: String!
+  phone: String!
+  updatedAt: DateTime!
+}
