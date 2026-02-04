@@ -62,3 +62,12 @@ export class VerifyOtpResponse {
   @Field(() => UserType)
   user: UserType;
 }
+
+@ObjectType()
+export class ResendOtpResponse {
+  @Field()
+  message: string;
+
+  @Field(() => Date)
+  otpExpires: Date;
+}

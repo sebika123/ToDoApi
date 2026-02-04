@@ -47,9 +47,9 @@ export class AuthService {
       role: 'user',
     });
     this.logger.log(
-      `📧 Registration OTP for ${user.name} (${user.email}): ${otp}`,
+      `Registration OTP for ${user.name} (${user.email}): ${otp}`,
     );
-    this.logger.log(`⏰ OTP expires at: ${otpExpires}`);
+    this.logger.log(` OTP expires at: ${otpExpires}`);
 
     try {
       await this.emailService.sendVerificationEmail(user.email, otp, user.name);
@@ -68,7 +68,6 @@ export class AuthService {
       email: user.email,
       isVerified: false,
       otpExpires: otpExpires,
-      otp: otp, // Include OTP in response for testing
     };
   }
 

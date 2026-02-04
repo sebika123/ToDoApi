@@ -7,6 +7,7 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import {
   AuthResponse,
   RegisterResponse,
+  ResendOtpResponse,
   VerifyOtpResponse,
 } from './auth-response.type';
 
@@ -29,10 +30,9 @@ export class AuthResolver {
     return this.authService.verifyOtp(dto.email, dto.otp);
   }
 
-  @Mutation(() => String)
+  @Mutation(() => ResendOtpResponse)
   async resendOtp(@Args('input') dto: ResendOtpDto) {
-    const result = await this.authService.resendOtp(dto.email);
-    return result.message;
+    return this.authService.resendOtp(dto.email);
   }
 
   @Mutation(() => AuthResponse)
