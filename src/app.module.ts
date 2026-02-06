@@ -6,6 +6,7 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
 import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
+import { TaskModule } from './task/task.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { EmailModule } from './email/email.module';
 
     AuthModule,
     EmailModule,
+    TaskModule,
   ],
 })
 export class AppModule {}
