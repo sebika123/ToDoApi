@@ -26,4 +26,40 @@ export class TaskService {
       createdAt: task.createdAt,
     }));
   }
+
+  async updateStatus(id: string, status: string): Promise<TaskResponse> {
+    const updatedTask = await this.taskModel.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true },
+    );
+
+    if (!updatedTask) {
+      throw new Error('Task not found');
+    }
+
+    return {
+      id: updatedTask._id.toString(),
+      title: updatedTask.title,
+      description: updatedTask.description,
+      status: updatedTask.status,
+      createdAt: updatedTask.createdAt,
+    };
+  }
+
+  async delete(id: string): Promise<TaskResponse> {
+    const deletedTask = await this.taskModel.findByIdAndDelete(id);
+
+    if (!deletedTask) {
+      throw new Error('Task not found');
+    }
+
+    return {
+      id: deletedTask._id.toString(),
+      title: deletedTask.title,
+      description: deletedTask.description,
+      status: deletedTask.status,
+      createdAt: deletedTask.createdAt,
+    };
+  }
 }

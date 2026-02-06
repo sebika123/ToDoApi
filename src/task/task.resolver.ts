@@ -16,4 +16,17 @@ export class TaskResolver {
   async listAllTask(): Promise<TaskResponse[]> {
     return this.taskService.findAll();
   }
+
+  @Mutation(() => TaskResponse)
+  async updateTaskStatus(
+    @Args('id') id: string,
+    @Args('status') status: string,
+  ): Promise<TaskResponse> {
+    return this.taskService.updateStatus(id, status);
+  }
+
+  @Mutation(() => TaskResponse)
+  async deleteTask(@Args('id') id: string): Promise<TaskResponse> {
+    return this.taskService.delete(id);
+  }
 }
