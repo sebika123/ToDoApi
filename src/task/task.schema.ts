@@ -16,6 +16,9 @@ export class Task {
 
   @Prop()
   createdAt: Date;
+
+   @Prop({ required: true })
+  userId: string; 
 }
 
 export const TaskSchema = SchemaFactory.createForClass(Task);

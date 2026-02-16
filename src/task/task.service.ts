@@ -9,27 +9,29 @@ import { TaskResponse } from './dto/task.response.dto';
 export class TaskService {
   constructor(@InjectModel(Task.name) private taskModel: Model<TaskDocument>) {}
 
-  async create(dto: CreateTaskDto): Promise<TaskDocument> {
-    const task = new this.taskModel(dto);
+  async create(dto: CreateTaskDto, userId:string): Promise<TaskDocument> {
+    const task = new this.taskModel({
+      ...dto,
+      userId
+    });
     return task.save();
   }
 
-  async findAll(): Promise<TaskResponse[]> {
-    const tasks = await this.taskModel.find().exec();
+ async findAllForUser(userId: string): Promise<TaskResponse[]> {
+  const tasks = await this.taskModel.find({ userId }).exec();
 
-    // Map _id to id for GraphQL
-    return tasks.map((task) => ({
-      id: task._id.toString(),
-      title: task.title,
-      description: task.description,
-      status: task.status,
-      createdAt: task.createdAt,
-    }));
-  }
+  return tasks.map((task) => ({
+    id: task._id.toString(),
+    title: task.title,
+    description: task.description,
+    status: task.status,
+    createdAt: task.createdAt,
+  }));
+}
 
-  async updateStatus(id: string, status: string): Promise<TaskResponse> {
+  async updateStatus(id: string, status: string, userId:string): Promise<TaskResponse> {
     const updatedTask = await this.taskModel.findByIdAndUpdate(
-      id,
+    {_id:id, userId},
       { status },
       { new: true },
     );
@@ -47,8 +49,8 @@ export class TaskService {
     };
   }
 
-  async delete(id: string): Promise<TaskResponse> {
-    const deletedTask = await this.taskModel.findByIdAndDelete(id);
+  async delete(id: string, userId:string): Promise<TaskResponse> {
+    const deletedTask = await this.taskModel.findByIdAndDelete({_id:id, userId});
 
     if (!deletedTask) {
       throw new Error('Task not found');
